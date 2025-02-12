@@ -1,0 +1,80 @@
+(
+    $context := becknRequest.body.context;
+    $env := env;
+    $data := searchResponse.body.data.search;
+    {
+        "headers":{
+            "Content-Type": "application/json"
+        },
+        "body":{
+            "context":becknResponseContext,
+            "message": {
+                "catalog": {
+                    "descriptor": {
+                        "name": "Vendure Shop Catalog"
+                    },
+                    "providers": providersWithItems[].(
+                        $provider := $;
+                        $items := $data.items[$.productVariantId in $provider.productVariantIds];
+                        $allCategoryValues := $$.allCategories.values;
+                        $allCategoryIds := $allCategoryValues.id;
+                        $usedFacetIds := $distinct($items.facetValueIds);
+                        {
+                            "id": $provider.id,
+                            "descriptor": {
+                                "name": $provider.name
+                            },
+                            "categories": $allCategoryValues[id in $usedFacetIds][].{
+                                "id": id,
+                                "descriptor": {
+                                    "code": code,
+                                    "name": name
+                                }
+                            },
+                            "items": $items[].(
+                                $currProdVarId := productVariantId;
+                                $retItem := {
+                                    "price":(
+                                        $price := $exists($.price.value) ? $.price.value : ($.price.min+$.price.max)/2;
+                                        $price := $string($formatNumber($price/100,"#0.00"));
+                                        {
+                                        "listed_value": $price,
+                                        "currency": currencyCode,
+                                        "value": $price
+                                    }),
+                                    "id" : productVariantId,
+                                    "category_ids": facetValueIds[][$ in $allCategoryIds],
+                                    "descriptor": {
+                                        "name": productVariantName,
+                                        "long_desc": description,
+                                        "images": [
+                                            {
+                                                "url": productVariantAsset.preview ? productVariantAsset.preview : productAsset.preview
+                                            }
+                                        ]
+                                    },
+                                    "matched": true
+                                    
+                                };
+                                $retRating := {"rating": $string($$.productVariantSellers[id=$currProdVarId].product.customFields.reviewRating)};
+                                $retQuantity := {
+                                    "quantity":{
+                                            "unitized": {
+                                                "measure":{
+                                                    "value": $$.productVariantSellers[id=$currProdVarId].options.name,
+                                                    "unit": $$.productVariantSellers[id=$currProdVarId].options.group.name
+                                                }
+                                            }
+                                        }
+                                };
+                                $retTotal := $retRating.rating != "null" ? $merge([$retItem,$retRating]) : $retItem;
+                                $$.productVariantSellers[id=$currProdVarId].options ? $merge([$retTotal,$retQuantity]) : $retTotal   
+
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    }
+)

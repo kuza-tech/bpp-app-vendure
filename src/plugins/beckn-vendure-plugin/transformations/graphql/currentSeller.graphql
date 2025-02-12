@@ -1,0 +1,21 @@
+query ActiveChannel {
+    activeChannel {
+        id
+        code
+        token
+        customFields
+        seller {
+            id
+            createdAt
+            updatedAt
+            name
+            customFields {
+                shortDescription
+                longDescription
+                phoneNumber
+                email
+                url
+            }
+        }
+    }
+}

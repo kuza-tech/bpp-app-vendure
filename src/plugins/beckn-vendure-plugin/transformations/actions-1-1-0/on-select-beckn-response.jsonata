@@ -1,0 +1,92 @@
+(
+    $formatMoney := function($value){
+        $string($formatNumber($value/100,"#0.00"))
+    };
+    $formatPrice := function($price,$currencyCode){
+        {
+            "currency":$currencyCode,
+            "value":$formatMoney($price)
+        }
+    };
+    $context := becknRequest.body.context;
+    $env := env;
+    $order := currentOrderResponse.body.data.activeOrder;
+    $items := $order.lines;
+    $shippingMethods := eligibleShippingMethods;
+    $currentChannel := currentSellerResponse.body.data.activeChannel;
+    $currentSeller := $currentChannel.seller;
+    {
+        "headers":{
+            "Content-Type": "application/json"
+        },
+        "body":{    
+            "context":becknResponseContext,
+            "message": {
+                "order": {
+                    "id": vendureAuthToken,
+                    "provider":{
+                        "id": $currentChannel.token,
+                        "descriptor": {
+                            "name": $currentSeller.name
+                        }
+                    },
+                    "fulfillments": $shippingMethods[].{
+                        "id":$.id,
+                        "type":$.code
+                    },
+                    "items": $items[].{
+                        "id":$.productVariant.id,
+                        "descriptor":{
+                            "name":$.productVariant.name,
+                            "long_desc":$.productVariant.product.description,
+                            "images": ($.productVariant.assets ? $.productVariant.assets : $.productVariant.product.assets)[].{
+                                "url": source
+                            }
+                        },
+                        "price":(
+                            $price := $formatMoney($.unitPrice);
+                            {
+                            "listed_value": $price,
+                            "currency": $order.currencyCode,
+                            "value": $price
+                        }),
+                        "quantity":{
+                            "selected":{
+                                "count": $.quantity
+                            }
+                        }
+                    },
+                    "quote":{
+                        "price":$formatPrice($order.totalWithTax,$order.currencyCode),
+                        "breakup":[
+                            {
+                                "title":"base-price",
+                                "price": $formatPrice($order.subTotal,$order.currencyCode)
+                            },
+                            {
+                                "title":"taxes",
+                                "price": $formatPrice($order.totalWithTax-$order.total,$order.currencyCode)
+                            }
+                        ]
+                    },
+                    "type":"DEFAULT",
+                    "tags":[
+                        {
+                            "descriptor":{
+                                "name":"Shipping method details",
+                                "code":"ShippingMethodDetails"
+                            },
+                            "list":$shippingMethods[].{
+                                "descriptor":{
+                                    "name":$.name,
+                                    "code": $.code
+                                },
+                                "value": $.code
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    }
+)
